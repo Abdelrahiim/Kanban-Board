@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 
 package-lock.json
+
+
+
+# python 
+*.lock

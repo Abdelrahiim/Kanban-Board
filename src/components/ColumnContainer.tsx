@@ -5,7 +5,6 @@ import { Column, Id, Task } from "../type";
 import { useMemo, useState } from "react";
 import PlusIcon from "../icons/Plusicon";
 import TaskCard from "./TaskCard";
-import { DndContext} from "@dnd-kit/core";
 
 interface Props {
     column: Column;
@@ -19,6 +18,7 @@ interface Props {
 
 function ColumnContainer({ column, deleteColumn, updateColumn, updateTask, createTask, tasks, deleteTask }: Props) {
     const [editMode, setEditMode] = useState<boolean>(false);
+    const [value,SetValue] = useState<string>(column.title)
     const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
         id: column.id,
         data: {
@@ -34,14 +34,13 @@ function ColumnContainer({ column, deleteColumn, updateColumn, updateTask, creat
     };
 
     const taskIDs = useMemo(() => tasks.map((task) => task.id), [tasks]);
+
     if (isDragging) {
         return (
             <div className="bg-columnBackgroundColor opacity-40 border-2 border-rose-500 w-[350px] h-[500px] max-h-[500px] rounded-md flex flex-col"></div>
         );
     }
-    
-    
-    
+
     return (
         <div
             className="bg-columnBackgroundColor w-[350px] h-[500px] max-h-[500px] rounded-md flex flex-col"
@@ -63,17 +62,18 @@ function ColumnContainer({ column, deleteColumn, updateColumn, updateTask, creat
                     {!editMode && column.title}
                     {editMode && (
                         <input
-                            value={column.title}
+                            value={value}
                             autoFocus
                             className="bg-black focus:border-rose-500 border rounded outline-none px-2"
                             onBlur={() => {
                                 setEditMode(false);
                             }}
                             onChange={(e) => {
-                                updateColumn(column.id, e.target.value);
+                                SetValue(e.target.value)
                             }}
                             onKeyDown={(e) => {
                                 if (e.key !== "Enter") return;
+                                updateColumn(column.id, value);
 
                                 setEditMode(false);
                             }}
@@ -92,19 +92,15 @@ function ColumnContainer({ column, deleteColumn, updateColumn, updateTask, creat
             </div>
 
             {/* Column body  */}
-            <DndContext >
 
-            
             <div className="flex flow-grow flex-col gap-4 p-2 overflow-x-hidden overflow-y-auto">
-                <SortableContext items={taskIDs}>
-
+               
+                    {tasks.map((task) => (
+                        <TaskCard key={task.id} updateTask={updateTask} deleteTask={deleteTask} task={task} />
+                    ))}
                 
-                {tasks.map((task) => (
-                    <TaskCard key={task.id} updateTask={updateTask} deleteTask={deleteTask} task={task} />
-                ))}
-                </SortableContext>
             </div>
-            </DndContext>
+
             {/* Column Footer */}
             <button
                 className="flex gap-2 items-center border-columnBackgroundColor border-2 rounded-md hover:bg-mainBackgroundColor hover:text-rose-500 active:bg-black"

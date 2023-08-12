@@ -11,3 +11,9 @@ export type Task = {
     columnId:Id;
     content:string
 }
+
+
+export type APIData = {
+    columns:Column[]
+    tasks:Task[]
+}

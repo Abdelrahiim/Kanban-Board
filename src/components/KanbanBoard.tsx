@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PlusIcon from "../icons/Plusicon";
-import { Column, Id, Task } from "../type";
+import { APIData, Column, Id, Task } from "../type";
 import { nanoid } from "nanoid";
 import ColumnContainer from "./ColumnContainer";
+import axios, { AxiosResponse } from "axios";
 import {
     DndContext,
     DragEndEvent,
@@ -20,14 +21,12 @@ const KanbanBoard = (): JSX.Element => {
     const [columns, setColumns] = useState<Column[]>([]);
 
     const [tasks, setTasks] = useState<Task[]>([]);
-    const columnsId = useMemo(() => columns.map((col) => col.id), [columns]);
+    const columnsId = useMemo(() => columns.map((col) => col.id), []);
     const [activeColumn, setActiveColumn] = useState<Column | null>(null);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     /**
      *
      */
-    
-
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -35,15 +34,24 @@ const KanbanBoard = (): JSX.Element => {
             },
         })
     );
-    const createNewCollection = () => {
-        const columnToAdd: Column = {
-            id: nanoid(5),
-            title: `Column ${columns.length + 1}`,
-        };
+
+    
+    const createNewCollection = async () => {
+        const response:AxiosResponse<Column> = await axios.post("http://localhost:8000/api/columns",{
+            title:`Column ${columns.length +1}`
+        })
+        const columnToAdd = response.data
+           
+
         setColumns([...columns, columnToAdd]);
     };
 
-    const deleteColumn = (id: Id) => {
+    const deleteColumn = async (id: Id) => {
+
+        const response:AxiosResponse = await axios.delete(`http://localhost:8000/api/columns/${id}`)
+        console.log(response.data)
+
+
         const newColumns = columns.filter((cols) => cols.id !== id);
         setColumns(newColumns);
     };
@@ -53,12 +61,11 @@ const KanbanBoard = (): JSX.Element => {
     };
 
     const onDragStart = (event: DragStartEvent) => {
-        console.log(event.active.data.current);
         if (event.active.data.current?.type === "Column") {
             setActiveColumn(event.active.data.current.column);
             return;
         } else if (event.active.data.current?.type === "Task") {
-            console.log("gg");
+            console.log(event.active.data.current.task.id);
             setActiveTask(event.active.data.current.task);
             return;
         }
@@ -77,11 +84,17 @@ const KanbanBoard = (): JSX.Element => {
         });
     };
 
-    const updateColumn = (id: Id, title: string) => {
+    const updateColumn = async (id: Id, title: string) => {
+        
         const newColumns = columns.map((col) => {
             if (col.id !== id) return col;
             return { ...col, title };
         });
+        
+        const response: AxiosResponse<Column> = await axios.put(`http://localhost:8000/api/columns/${id}`, {
+            title,
+        });
+        console.log(response)
         setColumns(newColumns);
     };
     const updateTask = (id: Id, content: string) => {
@@ -93,12 +106,24 @@ const KanbanBoard = (): JSX.Element => {
     };
     const createTask = (columnId: Id) => {
         const newTask: Task = {
-            id: nanoid(),
+            id: nanoid(5),
             columnId: columnId,
             content: `task ${tasks.length + 1}`,
         };
         setTasks([...tasks, newTask]);
     };
+    const getColumns = async () => {
+        const response: AxiosResponse<APIData> = await axios.get("http://localhost:8000/");
+        const data:APIData = response.data
+
+        setColumns(data.columns)
+        setTasks(data.tasks)
+        console.log(data)
+    };
+    useEffect(() => {
+        getColumns();
+    },[]);
+
     return (
         <main className="my-7">
             <div className="flex justify-center items-center">
@@ -112,7 +137,7 @@ const KanbanBoard = (): JSX.Element => {
                 </button>
             </div>
             <div className="mx-auto  flex min-h-screen w-full items-center overflow-x-auto overflow-y-hidden px-[40px] my-8">
-                <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} >
+                <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
                     <div className="m-auto flex gap-4">
                         <div className="grid grid-cols-3  gap-4">
                             <SortableContext items={columnsId}>
