@@ -1,8 +1,8 @@
 import { useState } from "react";
 import DeleteIcon from "../icons/DeleteIcon";
 import { Id, Task } from "../type";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+// import { useSortable } from "@dnd-kit/sortable";
+// import { CSS } from "@dnd-kit/utilities";
 interface Props {
     task: Task;
     deleteTask: (id: Id) => void;
@@ -12,6 +12,7 @@ interface Props {
 function TaskCard({ task, deleteTask, updateTask }: Props) {
     const [mouseIsOver, setMouseIsOver] = useState<boolean>(false);
     const [editMode, setEditMode] = useState<boolean>(false);
+    const [value, SetValue] = useState<string>(task.content);
     // const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     //     id: task.id,
     //     data: {
@@ -39,7 +40,7 @@ function TaskCard({ task, deleteTask, updateTask }: Props) {
             // style={style}
             // {...listeners}
             // {...attributes}
-            className="bg-mainBackgroundColor cursor-grab task p-2.5 h-[100px] min-h-[100px] flex items-center justify-between rounded-xl  text-left hover:ring-2 hover:ring-inset hover:ring-red-500 "
+            className="bg-mainBackgroundColor cursor-pointer task p-2.5 h-[100px] min-h-[100px] flex items-center justify-between rounded-xl  text-left hover:ring-2 hover:ring-inset hover:ring-red-500 "
             onMouseEnter={() => {
                 setMouseIsOver(true);
             }}
@@ -57,17 +58,18 @@ function TaskCard({ task, deleteTask, updateTask }: Props) {
             {editMode && (
                 <textarea
                     className="h-[90%] focus:outline-none w-full resize-none border-none rounded bg-transparent text-white"
-                    value={task.content}
+                    value={value}
                     autoFocus
                     placeholder="Text Content Here"
                     onBlur={() => {
                         setEditMode(false);
                     }}
                     onChange={(e) => {
-                        updateTask(task.id, e.target.value);
+                        SetValue(e.target.value);
                     }}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && e.shiftKey) {
+                            updateTask(task.id, value);
                             setEditMode(false);
                         }
                         return;

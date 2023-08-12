@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import PlusIcon from "../icons/Plusicon";
 import { APIData, Column, Id, Task } from "../type";
-import { nanoid } from "nanoid";
+
 import ColumnContainer from "./ColumnContainer";
-import axios, { AxiosResponse } from "axios";
+import axios, { AxiosError, AxiosResponse } from "axios";
 import {
     DndContext,
     DragEndEvent,
     // DragOverEvent,
+    
     DragOverlay,
     DragStartEvent,
     PointerSensor,
@@ -16,60 +17,95 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove } from "@dnd-kit/sortable";
 import { createPortal } from "react-dom";
-import TaskCard from "./TaskCard";
+// import TaskCard from "./TaskCard";
 const KanbanBoard = (): JSX.Element => {
     const [columns, setColumns] = useState<Column[]>([]);
 
     const [tasks, setTasks] = useState<Task[]>([]);
-    const columnsId = useMemo(() => columns.map((col) => col.id), []);
+    const columnsId = useMemo(() => columns.map((col) => col.id), [columns]);
     const [activeColumn, setActiveColumn] = useState<Column | null>(null);
-    const [activeTask, setActiveTask] = useState<Task | null>(null);
-    /**
-     *
-     */
+    // const [activeTask, setActiveTask] = useState<Task | null>(null);
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 3,
+                distance: 10,
             },
         })
     );
 
-    
+    // Column Functions
+
+    // -----------------------------------------------------------------------------
+    /**
+     * Create New Column instance
+     *
+     * */
     const createNewCollection = async () => {
-        const response:AxiosResponse<Column> = await axios.post("http://localhost:8000/api/columns",{
-            title:`Column ${columns.length +1}`
-        })
-        const columnToAdd = response.data
-           
-
-        setColumns([...columns, columnToAdd]);
-    };
-
-    const deleteColumn = async (id: Id) => {
-
-        const response:AxiosResponse = await axios.delete(`http://localhost:8000/api/columns/${id}`)
-        console.log(response.data)
-
-
-        const newColumns = columns.filter((cols) => cols.id !== id);
-        setColumns(newColumns);
-    };
-    const deleteTask = (id: Id) => {
-        const newTasks = tasks.filter((task) => task.id !== id);
-        setTasks(newTasks);
-    };
-
-    const onDragStart = (event: DragStartEvent) => {
-        if (event.active.data.current?.type === "Column") {
-            setActiveColumn(event.active.data.current.column);
-            return;
-        } else if (event.active.data.current?.type === "Task") {
-            console.log(event.active.data.current.task.id);
-            setActiveTask(event.active.data.current.task);
-            return;
+        try {
+            const response: AxiosResponse<Column> = await axios.post("http://localhost:8000/api/columns", {
+                title: `Column ${columns.length + 1}`,
+            });
+            const columnToAdd = response.data;
+            setColumns([...columns, columnToAdd]);
+        } catch (err) {
+            const e = err as AxiosError;
+            console.log(e);
         }
     };
+
+    /**
+     * Update an Exiting Column instance
+     * @param id
+     * @param title
+     */
+    const updateColumn = async (id: Id, title: string) => {
+        try {
+            const newColumns = columns.map((col) => {
+                if (col.id !== id) return col;
+                return { ...col, title };
+            });
+
+            const response: AxiosResponse<Column> = await axios.put(`http://localhost:8000/api/columns/${id}`, {
+                title,
+            });
+            console.log(response);
+            setColumns(newColumns);
+        } catch (err) {
+            err = err as AxiosError;
+            console.log(err);
+        }
+    };
+
+    /**
+     * Delete A Column
+     * @param id
+     *
+     */
+    const deleteColumn = async (id: Id) => {
+        try {
+            const newColumns = columns.filter((cols) => cols.id !== id);
+            await axios.delete(`http://localhost:8000/api/columns/${id}`);
+
+            setColumns(newColumns);
+        } catch (err) {
+            const e = err as AxiosError;
+            console.log(e);
+        }
+    };
+
+    //  DND Drag Functions
+
+    // -------------------------------------------------------------------
+    const onDragStart = (event: DragStartEvent) => {
+        if (event.active.data.current?.type === "Column") {
+            console.log(event.active.data.current.column);
+            setActiveColumn(event.active.data.current.column);
+            return;
+        }
+        
+    };
+
     const onDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over) return;
@@ -84,45 +120,88 @@ const KanbanBoard = (): JSX.Element => {
         });
     };
 
-    const updateColumn = async (id: Id, title: string) => {
-        
-        const newColumns = columns.map((col) => {
-            if (col.id !== id) return col;
-            return { ...col, title };
-        });
-        
-        const response: AxiosResponse<Column> = await axios.put(`http://localhost:8000/api/columns/${id}`, {
-            title,
-        });
-        console.log(response)
-        setColumns(newColumns);
-    };
-    const updateTask = (id: Id, content: string) => {
-        const newTask = tasks.map((task) => {
-            if (task.id !== id) return task;
-            return { ...task, content };
-        });
-        setTasks(newTask);
-    };
-    const createTask = (columnId: Id) => {
-        const newTask: Task = {
-            id: nanoid(5),
-            columnId: columnId,
-            content: `task ${tasks.length + 1}`,
-        };
-        setTasks([...tasks, newTask]);
-    };
-    const getColumns = async () => {
-        const response: AxiosResponse<APIData> = await axios.get("http://localhost:8000/");
-        const data:APIData = response.data
+    
 
-        setColumns(data.columns)
-        setTasks(data.tasks)
-        console.log(data)
+    // Tasks Functions
+    // -------------------------------------------------------------------------------------------------
+
+    /**
+     *  Create New Task
+     * @param columnId
+     */
+    const createTask = async (columnId: Id) => {
+        try {
+            const response: AxiosResponse<Task> = await axios.post("http://localhost:8000/api/tasks", {
+                column_id: columnId,
+                content: `task ${tasks.length + 1}`,
+            });
+            const newTask = response.data;
+            setTasks([...tasks, newTask]);
+        } catch (err) {
+            const e = err as AxiosError;
+            console.log(e.status);
+        }
     };
+    /**
+     *  update Existing Task
+     * @param id
+     * @param Content
+     */
+    const updateTask = async (id: Id, content: string) => {
+        try {
+            const response: AxiosResponse<Task> = await axios.put(`http://localhost:8000/api/tasks/${id}`, {
+                content,
+            });
+            const newTask = tasks.map((task) => {
+                if (task.id !== id) return task;
+                return { ...task, content };
+            });
+            console.log(response.status, response.data);
+            setTasks(newTask);
+        } catch (err) {
+            const e = err as AxiosError;
+            console.log(e.status);
+        }
+    };
+
+    /**
+     * Delete a Task
+     * @param id
+     *
+     */
+    const deleteTask = async (id: Id) => {
+        try {
+            const response: AxiosResponse<Task> = await axios.delete(`http://localhost:8000/api/tasks/${id}`);
+            console.log(response.status, response.data);
+            const newTasks = tasks.filter((task) => task.id !== id);
+            setTasks(newTasks);
+        } catch (err) {
+            const e = err as AxiosError;
+            console.log(e.status);
+        }
+    };
+
+    // Fetching
+    /**
+     *
+     * Fetch Data From The Api and
+     *
+     */
+    const getData = async () => {
+        try {
+            const response: AxiosResponse<APIData> = await axios.get("http://localhost:8000/");
+            const data: APIData = response.data;
+            setColumns(data.columns);
+            setTasks(data.tasks);
+        } catch (err) {
+            err = err as AxiosError;
+            console.log(err);
+        }
+    };
+
     useEffect(() => {
-        getColumns();
-    },[]);
+        getData();
+    }, []);
 
     return (
         <main className="my-7">
@@ -137,7 +216,7 @@ const KanbanBoard = (): JSX.Element => {
                 </button>
             </div>
             <div className="mx-auto  flex min-h-screen w-full items-center overflow-x-auto overflow-y-hidden px-[40px] my-8">
-                <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+                <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} >
                     <div className="m-auto flex gap-4">
                         <div className="grid grid-cols-3  gap-4">
                             <SortableContext items={columnsId}>
@@ -162,16 +241,20 @@ const KanbanBoard = (): JSX.Element => {
                                 <ColumnContainer
                                     tasks={tasks.filter((task) => task.columnId === activeColumn.id)}
                                     column={activeColumn}
-                                    updateColumn={updateColumn}
-                                    deleteColumn={deleteColumn}
+                                    updateColumn={function (): void {}}
+                                    deleteColumn={function (): void {}}
                                     createTask={function (): void {}}
                                     deleteTask={function (): void {}}
                                     updateTask={function (): void {}}
                                 />
                             )}
-                            {activeTask && (
-                                <TaskCard task={activeTask} deleteTask={deleteTask} updateTask={updateTask} />
-                            )}
+                            {/* {activeTask && (
+                                <TaskCard
+                                    task={activeTask}
+                                    deleteTask={function (): void {}}
+                                    updateTask={function (): void {}}
+                                />
+                            )} */}
                         </DragOverlay>,
                         document.body
                     )}
